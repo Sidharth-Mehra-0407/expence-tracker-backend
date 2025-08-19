@@ -1,6 +1,6 @@
 const express = require('express');
 const app = express();
-const PORT = 5000;
+const PORT = process.env.Port || 5000;
 const cors = require('cors');
 app.use(cors());
 
@@ -37,5 +37,5 @@ app.delete('/expenses/:id', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server is running on https://expence-tracker-backend-849x.onrender.com/:${PORT}`);
+  console.log(`Server is running on ${PORT}`);
 });
