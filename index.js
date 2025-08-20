@@ -14,6 +14,19 @@ mongoose.connect(
 .then(() => console.log('MongoDB connected'))
 .catch(err => console.error('MongoDB connection error:', err));
 
+const transactionSchema = new mongoose.Schema({
+  description: String,
+  amount: Number,
+  type: { 
+    type: String, 
+    enum: ['income', 'expense'], 
+    required: true 
+  },
+  date: { type: Date, default: Date.now }
+});
+
+const Transaction = mongoose.model('Transaction', transactionSchema);
+
 const expenseSchema = new mongoose.Schema({
   description: String,
   amount: Number,
@@ -25,10 +38,68 @@ app.get('/', (req, res) => {
   res.send('Backend is working!');
 });
 
-app.get('/expenses', async (req, res) => {
+app.get('/transactions', async (req, res) => {
   try {
-    const expenses = await Expense.find().sort({ date: -1 });
-    res.json(expenses);
+    const transactions = await Transaction.find().sort({ date: -1 });
+    res.json(transactions);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch transactions' });
+  }
+});
+
+app.post('/transactions', async (req, res) => {
+  const { description, amount, type } = req.body;
+  if (!description || !amount || !type) {
+    return res.status(400).json({ error: 'Please include description, amount, and type.' });
+  }
+  try {
+    const transaction = new Transaction({ description, amount, type });
+    await transaction.save();
+    res.status(201).json(transaction);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add transaction' });
+  }
+});
+
+app.delete('/transactions/:id', async (req, res) => {
+  try {
+    const result = await Transaction.findByIdAndDelete(req.params.id);
+    if (!result) {
+      return res.status(404).json({ error: 'Transaction not found' });
+    }
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete transaction' });
+  }
+});
+
+app.get('/summary', async (req, res) => {
+  try {
+    const transactions = await Transaction.find();
+    const income = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const expenses = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    const balance = income - expenses;
+    
+    res.json({
+      totalIncome: income,
+      totalExpenses: expenses,
+      balance: balance
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch summary' });
+  }
+});
+
+app.get('/expenses', async (req, res) => {
+  try {    
+    const newExpenses = await Transaction.find({ type: 'expense' }).sort({ date: -1 });
+        
+    if (newExpenses.length === 0) {
+      const oldExpenses = await Expense.find().sort({ date: -1 });
+      res.json(oldExpenses);
+    } else {
+      res.json(newExpenses);
+    }
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch expenses' });
   }
@@ -39,18 +110,27 @@ app.post('/expenses', async (req, res) => {
   if (!description || !amount) {
     return res.status(400).json({ error: 'Please include description and amount.' });
   }
-  try {
-    const expense = new Expense({ description, amount });
-    await expense.save();
-    res.status(201).json(expense);
+  try {    
+    const transaction = new Transaction({ 
+      description, 
+      amount, 
+      type: 'expense' 
+    });
+    await transaction.save();
+    res.status(201).json(transaction);
   } catch (err) {
     res.status(500).json({ error: 'Failed to add expense' });
   }
 });
 
 app.delete('/expenses/:id', async (req, res) => {
-  try {
-    const result = await Expense.findByIdAndDelete(req.params.id);
+  try {    
+    let result = await Transaction.findByIdAndDelete(req.params.id);
+        
+    if (!result) {
+      result = await Expense.findByIdAndDelete(req.params.id);
+    }
+    
     if (!result) {
       return res.status(404).json({ error: 'Expense not found' });
     }
@@ -61,5 +141,5 @@ app.delete('/expenses/:id', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(Server is running on ${PORT});
+  console.log(`Server is running on ${PORT}`);
 });
