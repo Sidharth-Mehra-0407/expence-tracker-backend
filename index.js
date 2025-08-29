@@ -14,7 +14,6 @@ mongoose.connect(
 .then(() => console.log('MongoDB connected'))
 .catch(err => console.error('MongoDB connection error:', err));
 
-// Updated schema with userId
 const transactionSchema = new mongoose.Schema({
   description: String,
   amount: Number,
@@ -32,7 +31,6 @@ const transactionSchema = new mongoose.Schema({
 
 const Transaction = mongoose.model('Transaction', transactionSchema);
 
-// Keep old schema for backward compatibility
 const expenseSchema = new mongoose.Schema({
   description: String,
   amount: Number,
@@ -41,10 +39,9 @@ const expenseSchema = new mongoose.Schema({
 const Expense = mongoose.model('Expense', expenseSchema);
 
 app.get('/', (req, res) => {
-  res.send('Backend is working with user authentication!');
+  res.send('Backend is working!');
 });
 
-// Get transactions for specific user
 app.get('/transactions', async (req, res) => {
   const { userId } = req.query;
   
@@ -60,7 +57,6 @@ app.get('/transactions', async (req, res) => {
   }
 });
 
-// Add transaction for specific user
 app.post('/transactions', async (req, res) => {
   const { description, amount, type, userId } = req.body;
   
@@ -84,7 +80,6 @@ app.post('/transactions', async (req, res) => {
   }
 });
 
-// Delete transaction (only if it belongs to user)
 app.delete('/transactions/:id', async (req, res) => {
   const { userId } = req.body;
   
@@ -110,7 +105,6 @@ app.delete('/transactions/:id', async (req, res) => {
   }
 });
 
-// Get summary for specific user
 app.get('/summary', async (req, res) => {
   const { userId } = req.query;
   
@@ -134,17 +128,16 @@ app.get('/summary', async (req, res) => {
   }
 });
 
-// Legacy routes (keep for backward compatibility)
 app.get('/expenses', async (req, res) => {
   const { userId } = req.query;
   
   try {    
     if (userId) {
-      // New way: filter by user
+      
       const newExpenses = await Transaction.find({ type: 'expense', userId }).sort({ date: -1 });
       res.json(newExpenses);
     } else {
-      // Old way: show all (for backward compatibility)
+      
       const newExpenses = await Transaction.find({ type: 'expense' }).sort({ date: -1 });
       
       if (newExpenses.length === 0) {
@@ -171,7 +164,7 @@ app.post('/expenses', async (req, res) => {
       description, 
       amount, 
       type: 'expense',
-      userId: userId || 'legacy' // For backward compatibility
+      userId: userId || 'legacy' 
     });
     await transaction.save();
     res.status(201).json(transaction);
@@ -187,10 +180,10 @@ app.delete('/expenses/:id', async (req, res) => {
     let result;
     
     if (userId) {
-      // New way: only delete if belongs to user
+      
       result = await Transaction.findOneAndDelete({ _id: req.params.id, userId });
     } else {
-      // Old way: delete any (for backward compatibility)
+      
       result = await Transaction.findByIdAndDelete(req.params.id);
     }
         
